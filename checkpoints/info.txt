@@ -1,0 +1,4 @@
+Pre-trained model checkpoints
+
+Backproj->Conv->GRU->MHSA: up32_bproj_conv_gru_mhsa.h5
+CDBPN with 16 log-spaced bands: cdbpn_epoch_99.pth
