@@ -18,13 +18,13 @@ def main(argv):
     # -------------- Extract features and labels for development set -----------------------------
     dev_feat_cls = cls_feature_class.FeatureClass(params)
 
-    # # Extract features and normalize them
+    # Extract features and normalize them
     #dev_feat_cls.extract_all_feature()
     #dev_feat_cls.preprocess_features()
 
-    # # # Extract labels
+    # Extract labels
     #dev_feat_cls.extract_all_labels()
-    # Extract deepwave features
+    # Extract input features for DeepWave back-bone (correlation matrices)
     dev_feat_cls.extract_features_dw()
 
 if __name__ == "__main__":

@@ -15,9 +15,9 @@ def get_params(argv='1'):
 
         # INPUT PATH
         dataset_dir='/scratch/ssd1/audio_datasets/STARSS23_audio_only',
-        # EXTRACTED FEATURES PATH
-        feat_label_dir = '/scratch/ssd1/feas-upsamp-starrss2023',
-
+        
+        # EXTRACTED FEATURES PATH        
+        feat_label_dir = '/scratch/ssd1/feas-upsamp-starrss2023-2',
         model_dir='models/',            # Dumps the trained models and training curves in this folder
         dcase_output_dir='results/',    # recording-wise results are dumped in this path.
 

@@ -41,7 +41,6 @@ class FeatureClass:
         self._dataset_dir = params['dataset_dir']
         self._dataset_combination = '{}_{}'.format(params['dataset'], 'eval' if is_eval else 'dev')
         self._aud_dir = os.path.join(self._dataset_dir, self._dataset_combination)
-
         self._desc_dir = None if is_eval else os.path.join(self._dataset_dir, 'metadata_dev')
 
         # Output directories
@@ -254,8 +253,6 @@ class FeatureClass:
         idx_end = int((fc + 0.5 * bw) * N_stft_sample / _rate)
         collapsed_spectrum = np.sum(stft_data[:, idx_start:idx_end + 1, :], axis=1)
 
-        # Don't understand yet why conj() on first term?
-        # collapsed_spectrum = collapsed_spectrum[0,:]
         S = (collapsed_spectrum.reshape(N_stf, -1, 1).conj() *
             collapsed_spectrum.reshape(N_stf, 1, -1))
         return S
@@ -304,8 +301,8 @@ class FeatureClass:
 
     def _get_visibility_matrix_for_file(self, audio_filename):
         audio_in, fs = self._load_audio_deepwave(audio_filename)
-        print("Audio in shape", audio_in.shape)
         nbands = 17
+        ## To generate linearly-spaced bands
         # freq, bw = (skutil  # Center frequencies to form images
         #     .view_as_windows(np.linspace(50, 4500, nbands), (2,), 1)
         #     .mean(axis=-1)), 50.0  # [Hz]
@@ -482,11 +479,10 @@ class FeatureClass:
                 _file_cnt, _wav_path, _feat_path = _arg_in
 
                 # Extract visibility matrix (DeepWave's input)
-                print("Wave path", _wav_path)
                 visibility_mat = self._get_visibility_matrix_for_file(_wav_path)
                 
                 if visibility_mat is not None:
-                    print('DeepWave feats {}: {}, {}'.format(_file_cnt, os.path.basename(_wav_path), visibility_mat.shape ))
+                    # print('Compute visibility matrix info {}: {}, {}'.format(_file_cnt, os.path.basename(_wav_path), visibility_mat.shape ))
                     np.save(_feat_path, visibility_mat)
 
     def extract_file_feature(self, _arg_in):
@@ -539,24 +535,16 @@ class FeatureClass:
                 wav_filename = '{}.wav'.format(file_name.split('.')[0])
                 wav_path = os.path.join(loc_aud_folder, wav_filename)
                 feat_path = os.path.join(self._feat_dir, '{}.npy'.format(wav_filename.split('.')[0]))
-                deepwave_feats_path = "/scratch/data/LOCATA/deepwave/feats_all_vgmats_short/"+'{}.npy'.format(wav_filename.split('.')[0])
-                deepwave_wave_path = None
 
-                # self.extract_file_feature_visibility_matrices((file_cnt, deepwave_wave_path, deepwave_feats_path)) # [DeepWave] uncomment to use deepwave feats
-                # self.extract_file_feature_visibility_matrices((file_cnt, wav_path, feat_path))
                 self.extract_file_feature((file_cnt, wav_path, feat_path))
-                # arg_list.append((file_cnt, wav_path, feat_path))
                 arg_list.append(((file_cnt, wav_path, feat_path)))
-#        with Pool() as pool:
-#            result = pool.map(self.extract_file_feature, iterable=arg_list)
-#            pool.close()
-#            pool.join()
+        
         print(time.time()-start_s)
 
 
     def extract_features_dw(self):
         # setting up folders
-        self._feat_dir = self.get_unnormalized_feat_dir()
+        self._feat_dir = self.get_dw_feat_dir()
         create_folder(self._feat_dir)
         from multiprocessing import Pool
         import time
@@ -573,19 +561,10 @@ class FeatureClass:
                     continue
                 wav_filename = '{}.wav'.format(file_name.split('.')[0])
                 wav_path = os.path.join(loc_aud_folder, wav_filename)
-                feat_path = os.path.join(self._feat_dir, '{}.npy'.format(wav_filename.split('.')[0]))
-                deepwave_feats_path = "/scratch/ssd1/feas-upsamp-starrss2023/mic_dev_dw/"+'{}.npy'.format(wav_filename.split('.')[0])
-                deepwave_wave_path = None
+                dw_feat_path = os.path.join(self._feat_dir, '{}.npy'.format(wav_filename.split('.')[0]))
 
-                self.extract_file_feature_visibility_matrices((file_cnt, wav_path, deepwave_feats_path)) # [DeepWave] uncomment to use deepwave feats
-                # self.extract_file_feature_visibility_matrices((file_cnt, wav_path, feat_path))
-                self.extract_file_feature((file_cnt, wav_path, feat_path))
-                # arg_list.append((file_cnt, wav_path, feat_path))
-                arg_list.append(((file_cnt, wav_path, feat_path)))
-#        with Pool() as pool:
-#            result = pool.map(self.extract_file_feature, iterable=arg_list)
-#            pool.close()
-#            pool.join()
+                self.extract_file_feature_visibility_matrices((file_cnt, wav_path, dw_feat_path))
+        
         print(time.time()-start_s)
 
     def preprocess_features(self):
@@ -833,6 +812,12 @@ class FeatureClass:
         return os.path.join(
             self._feat_label_dir,
             '{}_wts'.format(self._dataset)
+        )
+
+    def get_dw_feat_dir(self):                                    
+        return os.path.join(                                      
+            self._feat_label_dir,                                   
+            '{}'.format('{}_dw'.format(self._dataset_combination))
         )
 
     def get_nb_channels(self):
