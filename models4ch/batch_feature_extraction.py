@@ -19,11 +19,11 @@ def main(argv):
     dev_feat_cls = cls_feature_class.FeatureClass(params)
 
     # Extract features and normalize them
-    #dev_feat_cls.extract_all_feature()
-    #dev_feat_cls.preprocess_features()
+    dev_feat_cls.extract_all_feature()
+    dev_feat_cls.preprocess_features()
 
     # Extract labels
-    #dev_feat_cls.extract_all_labels()
+    dev_feat_cls.extract_all_labels()
     # Extract input features for DeepWave back-bone (correlation matrices)
     dev_feat_cls.extract_features_dw()
 
