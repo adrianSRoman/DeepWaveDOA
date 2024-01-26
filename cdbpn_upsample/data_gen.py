@@ -1,17 +1,10 @@
-import argparse
-from math import log10
-import matplotlib.pyplot as plt
-
 import os
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-from torch.utils.data import DataLoader, random_split
-from dbpn_complex import Net as DBPNCX
-
 from tqdm import tqdm
+import pickle
+from random import randrange
+import gc
+from glob import glob
+import h5py
 import numpy as np
 import scipy
 from scipy.io import wavfile
@@ -24,6 +17,8 @@ import skimage.util as skutil
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 import scipy.spatial as spatial
+
+import librosa
 
 '''
 
@@ -122,13 +117,15 @@ def form_visibility(data, rate, fc, bw, T_sti, T_stationarity):
 
 def get_visibility_matrix(audio_in, fs):
     # audio_in, fs = self._load_audio(audio_filename)
-    
+    nbands = 10
     freq, bw = (skutil  # Center frequencies to form images
-        .view_as_windows(np.linspace(1500, 4500, 10), (2,), 1)
+        .view_as_windows(np.linspace(1500, 4500, nbands), (2,), 1)
         .mean(axis=-1)), 50.0  # [Hz]
 
+    # freq, bw = librosa.mel_frequencies(n_mels=nbands-1, fmin=50, fmax=4500), 50
+
     visibilities = []
-    for i in range(9):
+    for i in range(nbands-1):
         T_sti = 10.0e-3
         T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10
         S = form_visibility(audio_in, fs, freq[i], bw, T_sti, T_stationarity)
@@ -151,29 +148,53 @@ def create_full_hdf_data(dataset_name='train', data_src=None, save_path=None):
     if not data_src or not save_path:
         print("[Error] Provide a valid dataset source path or a valid path to save the generated dataset")
         return
-    eigenmike_files = [os.path.join(data_src, file) for file in os.listdir(data_src) if file.endswith('.wav') and "._" not in file]
-    cdbpn = DBPNCX(num_channels=9, base_filter=32,  feat = 128, num_stages=10, scale_factor=8).to('cuda')
-    pretrained_dict = torch.load('/home/asroman/repos/DBPN-Pytorch/weights/cdbpn_epoch_99.pth', map_location=torch.device('cuda'))
-    new_pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items()}
-    cdbpn.load_state_dict(new_pretrained_dict)
-    for clip_name in tqdm(eigenmike_files):
-        fs, eigen_sig = wavfile.read(clip_name)
-        mic_sig = eigen_sig #[:, [5,9,25,21]]
-        vsg_sig = get_visibility_matrix(mic_sig, fs) # visibility graph matrix 32ch 
-        torch_vsg_sig = torch.transpose(torch.tensor(vsg_sig), 0, 1).to('cuda')
-        out_data_list = []
-        for i in range(torch_vsg_sig.size(0)):
-            out_data_list.append(cdbpn(torch_vsg_sig[i].real.unsqueeze(0), torch_vsg_sig[i].imag.unsqueeze(0)).cpu().detach().numpy()[0])
-        numpy_data = np.array(out_data_list)
-        numpy_data = np.transpose(numpy_data, (1, 0, 2, 3))
-        save_to_path = os.path.join(save_path, f"{os.path.basename(clip_name).split('.')[0]}.npy")
-        np.save(save_to_path, numpy_data)
-        # out_data = cdbpn(torch_vsg_sig.real, torch_vsg_sig.imag)
-        # print(out_data.shape)
-
     
+    eigenmike_files = []
+    if "train" in dataset_name:
+        eigenmike_files = [os.path.join(data_src, file) for file in os.listdir(data_src) if file.endswith('.wav') and "._" not in file and "fold1" in file]
+    elif "test" in dataset_name:
+        eigenmike_files = [os.path.join(data_src, file) for file in os.listdir(data_src) if file.endswith('.wav') and "._" not in file and "fold2" in file]
+    else:
+        eigenmike_files = [os.path.join(data_src, file) for file in os.listdir(data_src) if file.endswith('.wav') and "._" not in file]
 
-# save_path = "/scratch/data/upsamp-Synth-FSD50K-DCASE-METU-ARNI-LOCATA-MIC-Speech-Only-short"
-save_path = "/scratch/data/upsamp-METU-ARNI-LOCATA-MIC-Speech-Only-short"
-data_src = "/scratch/data/Synth-FSD50K-DCASE-METU-ARNI-LOCATA-MIC-Speech-Only-short/mic_dev/mic"
-create_full_hdf_data(dataset_name='metu_speech_only', data_src=data_src, save_path=save_path)
+    with h5py.File(os.path.join(save_path, f"{dataset_name}.hdf"),"w") as f:
+        mic_data = []
+        vg_labels = []
+        for clip_name in tqdm(eigenmike_files):
+            # print("Clipname ", os.path.basename(clip_name))
+            fs, eigen_sig = wavfile.read(clip_name)
+            vsg_sig = get_visibility_matrix(eigen_sig, fs) # visibility graph matrix 32ch 
+            # print("Visibility matrix size:", vsg_sig.shape)
+            mic_sig = eigen_sig[:, [5,9,25,21]] # 4 ch raw MIC
+            mic_vsg_sig = get_visibility_matrix(mic_sig, fs)
+            mic_data.append(mic_vsg_sig.transpose(1, 0, 2, 3))
+            vg_labels.append(vsg_sig.transpose(1, 0, 2, 3)) # (nframes, nbands, nch, nch)
+        a_np = np.vstack(mic_data)
+        b_np = np.vstack(vg_labels)
+
+        print("shape of a_np", a_np.shape)
+        print("shape of b_np", b_np.shape)
+
+        f.create_dataset("mic", shape=a_np.shape, dtype=a_np.dtype, data=a_np)
+        f.create_dataset("labels", shape=b_np.shape, dtype=b_np.dtype, data=b_np)
+    
+        
+        assert(a_np.shape[0] == b_np.shape[0])
+        f.attrs["sr"] = fs
+        
+        del a_np, b_np
+        gc.collect()            
+
+## Parameters used to train network with ARNI+METU dataset that constains some silence
+# save_path = "data"
+# data_src = "/scratch/data/Synth-FSD50K-DCASE-ARNI-EM32-Speech-Only/target_noiseless/mic"
+# create_full_hdf_data(dataset_name='metu_speech_only_starrss', data_src=data_src, save_path=save_path)
+
+# save_path = "data"
+# data_src = "/scratch/data/Synth-FSD50K-DCASE-ARNI-EM32-Speech-Only/target_noiseless/mic"
+# create_full_hdf_data(dataset_name='metu_speech_only_starrss16ch_log', data_src=data_src, save_path=save_path)
+
+save_path = "data"
+data_src = "/scratch/data/Synth-FSD50K-DCASE-METU-ARNI-EM32-Speech-Only-short/foa_dev/mic/"
+create_full_hdf_data(dataset_name='metu_train9ch', data_src=data_src, save_path=save_path)
+create_full_hdf_data(dataset_name='metu_test9ch', data_src=data_src, save_path=save_path)
