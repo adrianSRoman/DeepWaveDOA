@@ -62,17 +62,13 @@ def train(epoch):
     epoch_loss = 0
     model.train()
     for iteration, batch in enumerate(training_data_loader, 1):
-        inp, target, bicubic = torch.tensor(batch[0]).to(device).cfloat(), torch.tensor(batch[1]).to(device).cfloat(), torch.tensor(batch[2]).to(device).float() #torch.tensor(target).to(device).float() #Variable(batch[0]), Variable(batch[1]), Variable(batch[2])
-        # if cuda:
-        #     input = input.cuda(gpus_list[0]).cfloat()
-        #     target = target.cuda(gpus_list[0]).cfloat()
-        #     bicubic = bicubic.cuda(gpus_list[0]).float()
+        inp, target, bicubic = torch.tensor(batch[0]).to(device).cfloat(), torch.tensor(batch[1]).to(device).cfloat(), torch.tensor(batch[2]).to(device).float() 
         optimizer.zero_grad()
         t0 = time.time()
         prediction = model(inp.real.double(), inp.imag.double())
 
         if opt.residual:
-            prediction = prediction #+ bicubic
+            prediction = prediction
 
         loss = criterion(prediction, target)
         t1 = time.time()
@@ -91,11 +87,7 @@ def test():
     avg_mse = 0
     pred, target = None, None
     for batch in testing_data_loader:
-        inp, target = torch.tensor(batch[0]).to(device).cfloat(), torch.tensor(batch[1]).to(device).cfloat() #, torch.tensor(batch[2]).to(device).float()Variable(batch[0]), Variable(batch[1])
-        # if cuda:
-        #     input = input.cuda(gpus_list[0]).cfloat()
-        #     target = target.cuda(gpus_list[0]).cfloat()
-
+        inp, target = torch.tensor(batch[0]).to(device).cfloat(), torch.tensor(batch[1]).to(device).cfloat()
         prediction = model(inp.real.double(), inp.imag.double())
         mse = criterion(prediction, target)
         avg_mse += mse.item()
@@ -135,21 +127,6 @@ if cuda:
     torch.cuda.manual_seed(opt.seed)
 
 print('===> Loading datasets')
-# train_set = get_training_set(opt.data_dir, opt.hr_train_dataset, opt.upscale_factor, opt.patch_size, opt.data_augmentation)
-# training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
-
-# # Used before when using a split based on probability form a big HDF file
-# # Generators
-# dataset_file = "data/metu_speech_only_starrss16ch_log.hdf"
-# dataset = DatasetFromFolder(dataset_file)
-# dataset_size = len(dataset)
-# test_split = 0.1
-# test_size = int(test_split * dataset_size)
-# train_size = dataset_size - test_size
-# train_dataset, test_dataset = random_split(dataset,[train_size, test_size])
-
-# training_data_loader = DataLoader(dataset=train_dataset, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
-# testing_data_loader = DataLoader(dataset=test_dataset, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True) # no shuffle, batch=1
 
 dataset_tr_file = "data/metu_train9ch.hdf"
 dataset_train = DatasetFromFolder(dataset_tr_file)
@@ -157,29 +134,22 @@ dataset_train = DatasetFromFolder(dataset_tr_file)
 dataset_val_file = "data/metu_test9ch.hdf"
 dataset_val = DatasetFromFolder(dataset_val_file)
 
+training_data_loader = DataLoader(dataset=dataset_train, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
+testing_data_loader = DataLoader(dataset=dataset_val, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True) # no shuffle, batch=1
 
-# training_data_loader = DataLoader(dataset=dataset_train, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
-# testing_data_loader = DataLoader(dataset=dataset_val, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True) # no shuffle, batch=1
-
-combined_dataset = torch.utils.data.ConcatDataset([dataset_train, dataset_val])
-dataset_size = len(combined_dataset)
-test_split = 0.1
-test_size = int(test_split * dataset_size)
-train_size = dataset_size - test_size
-train_dataset, test_dataset = random_split(combined_dataset,[train_size, test_size])
+#combined_dataset = torch.utils.data.ConcatDataset([dataset_train, dataset_val])
+#dataset_size = len(combined_dataset)
+#test_split = 0.1
+#test_size = int(test_split * dataset_size)
+#train_size = dataset_size - test_size
+#train_dataset, test_dataset = random_split(combined_dataset,[train_size, test_size])
 
 training_data_loader = DataLoader(dataset=train_dataset, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 testing_data_loader = DataLoader(dataset=test_dataset, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True) # no shuffle, batch=1
 
 
 print('===> Building model ', opt.model_type)
-if opt.model_type == 'DBPNLL':
-    model = DBPNCX(num_channels=9, base_filter=32,  feat = 128, num_stages=10, scale_factor=opt.upscale_factor) 
-elif opt.model_type == 'DBPN-RES-MR64-3':
-    model = DBPNITER(num_channels=3, base_filter=64,  feat = 256, num_stages=3, scale_factor=opt.upscale_factor)
-else:
-    model = DBPN(num_channels=3, base_filter=64,  feat = 256, num_stages=7, scale_factor=opt.upscale_factor) 
-    
+model = DBPNCX(num_channels=9, base_filter=32,  feat = 128, num_stages=10, scale_factor=opt.upscale_factor) 
 model = torch.nn.DataParallel(model, device_ids=gpus_list)
 criterion = nn.L1Loss()
 
@@ -190,7 +160,6 @@ print('----------------------------------------------')
 if opt.pretrained:
     model_name = os.path.join(opt.save_folder + opt.pretrained_sr)
     if os.path.exists(model_name):
-        #model= torch.load(model_name, map_location=lambda storage, loc: storage)
         model.load_state_dict(torch.load(model_name, map_location=lambda storage, loc: storage))
         print('Pre-trained SR model is loaded.')
 
