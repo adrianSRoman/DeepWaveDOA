@@ -196,5 +196,5 @@ def create_full_hdf_data(dataset_name='train', data_src=None, save_path=None):
 
 save_path = "data"
 data_src = "/scratch/data/Synth-FSD50K-DCASE-METU-ARNI-EM32-Speech-Only-short/foa_dev/mic/"
-create_full_hdf_data(dataset_name='metu_train9ch', data_src=data_src, save_path=save_path)
-create_full_hdf_data(dataset_name='metu_test9ch', data_src=data_src, save_path=save_path)
+create_full_hdf_data(dataset_name='metu_train', data_src=data_src, save_path=save_path)
+create_full_hdf_data(dataset_name='metu_test', data_src=data_src, save_path=save_path)
