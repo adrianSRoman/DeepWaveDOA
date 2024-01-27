@@ -10,11 +10,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, random_split
-from dbpn import Net as DBPN
-from dbpn_v1 import Net as DBPNLL
-from dbpns import Net as DBPNS
-from dbpn_complex import Net as DBPNCX
-from dbpn_iterative import Net as DBPNITER
+from cdbpn import Net as CDBPN
 from data import get_training_set
 import pdb
 import socket
@@ -41,11 +37,9 @@ parser.add_argument('--data_train_path', type=str, default='data/metu_train.hdf'
 parser.add_argument('--data_eval_path', type=str, default='data/metu_eval.hdf', help='Eval HDF file path')
 parser.add_argument('--data_augmentation', type=bool, default=False)
 parser.add_argument('--hr_train_dataset', type=str, default='DIV2K_train_HR')
-parser.add_argument('--model_type', type=str, default='DBPNLL')
+parser.add_argument('--model_type', type=str, default='CDBPN')
 parser.add_argument('--residual', type=bool, default=False)
 parser.add_argument('--patch_size', type=int, default=40, help='Size of cropped HR image')
-parser.add_argument('--pretrained_sr', default='MIX2K_LR_aug_x4dl10DBPNITERtpami_epoch_399.pth', help='sr pretrained base model')
-parser.add_argument('--pretrained', type=bool, default=False)
 parser.add_argument('--save_folder', default='weights/', help='Location to save checkpoint models')
 parser.add_argument('--prefix', default='cdbpn', help='Location to save checkpoint models')
 
@@ -150,19 +144,13 @@ testing_data_loader = DataLoader(dataset=test_dataset, num_workers=opt.threads, 
 
 
 print('===> Building model ', opt.model_type)
-model = DBPNCX(num_channels=9, base_filter=32,  feat = 128, num_stages=10, scale_factor=opt.upscale_factor) 
+model = CDBPN(num_channels=9, base_filter=32,  feat = 128, num_stages=10, scale_factor=opt.upscale_factor) 
 model = torch.nn.DataParallel(model, device_ids=gpus_list)
 criterion = nn.L1Loss()
 
 print('---------- Networks architecture -------------')
 print_network(model)
 print('----------------------------------------------')
-
-if opt.pretrained:
-    model_name = os.path.join(opt.save_folder + opt.pretrained_sr)
-    if os.path.exists(model_name):
-        model.load_state_dict(torch.load(model_name, map_location=lambda storage, loc: storage))
-        print('Pre-trained SR model is loaded.')
 
 if cuda:
     model = model.cuda(gpus_list[0])
