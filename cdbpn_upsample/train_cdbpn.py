@@ -21,8 +21,8 @@ import socket
 import time
 
 import numpy as np
-
 from dataset import DatasetFromFolderEval, DatasetFromFolder
+
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Super Res Example')
@@ -37,7 +37,8 @@ parser.add_argument('--gpu_mode', type=bool, default=True)
 parser.add_argument('--threads', type=int, default=1, help='number of threads for data loader to use')
 parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
 parser.add_argument('--gpus', default=1, type=int, help='number of gpu')
-parser.add_argument('--data_dir', type=str, default='./Dataset')
+parser.add_argument('--data_train_path', type=str, default='data/metu_train.hdf', help='Train HDF file path')
+parser.add_argument('--data_eval_path', type=str, default='data/metu_eval.hdf', help='Eval HDF file path')
 parser.add_argument('--data_augmentation', type=bool, default=False)
 parser.add_argument('--hr_train_dataset', type=str, default='DIV2K_train_HR')
 parser.add_argument('--model_type', type=str, default='DBPNLL')
@@ -128,10 +129,10 @@ if cuda:
 
 print('===> Loading datasets')
 
-dataset_tr_file = "data/metu_train9ch.hdf"
+dataset_tr_file = opt.data_train_path
 dataset_train = DatasetFromFolder(dataset_tr_file)
 
-dataset_val_file = "data/metu_test9ch.hdf"
+dataset_val_file = opt.data_eval_path
 dataset_val = DatasetFromFolder(dataset_val_file)
 
 training_data_loader = DataLoader(dataset=dataset_train, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
@@ -196,15 +197,15 @@ for epoch in range(opt.start_iter, opt.nEpochs + 1):
 #     checkpoint(best_epoch)
 
 
-plt.figure()
-plt.plot(epoch_tr_loss, label='train_loss')
-plt.plot(epoch_avg_test_mse,label='val_loss')
-plt.legend()
-plt.savefig("./figures/avg_loss_curve.png")
+## Uncomment for plotting loss 
+#plt.figure()
+#plt.plot(epoch_tr_loss, label='train_loss')
+#plt.plot(epoch_avg_test_mse,label='val_loss')
+#plt.legend()
+#plt.savefig("./figures/avg_loss_curve.png")
 
-
-plt.figure()
-plt.plot(epoch_avg_test_psnr, label='Avg. val PSNR/epoch')
-# plt.plot(epoch_avg_test_mse,label='Avg. val MSE/epoch')
-plt.legend()
-plt.savefig("./figures/avg_psnr_mse_curve.png")
+#plt.figure()
+#plt.plot(epoch_avg_test_psnr, label='Avg. val PSNR/epoch')
+## plt.plot(epoch_avg_test_mse,label='Avg. val MSE/epoch')
+#plt.legend()
+#plt.savefig("./figures/avg_psnr_mse_curve.png")
