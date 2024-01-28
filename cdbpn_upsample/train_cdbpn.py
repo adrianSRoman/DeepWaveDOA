@@ -23,7 +23,6 @@ from dataset import DatasetFromFolderEval, DatasetFromFolder
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Super Res Example')
 parser.add_argument('--upscale_factor', type=int, default=8, help="super resolution upscale factor")
-# parser.add_argument('--batchSize', type=int, default=16, help='training batch size') # before batch_sz == 16
 parser.add_argument('--batchSize', type=int, default=32, help='training batch size')
 parser.add_argument('--nEpochs', type=int, default=100, help='number of epochs to train for')
 parser.add_argument('--snapshots', type=int, default=50, help='Snapshots')
