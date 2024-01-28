@@ -115,17 +115,17 @@ def form_visibility(data, rate, fc, bw, T_sti, T_stationarity):
         .sum(axis=1))
     return S
 
-def get_visibility_matrix(audio_in, fs):
+def get_visibility_matrix(audio_in, fs, nbands=16, bands_type="linear"):
     # audio_in, fs = self._load_audio(audio_filename)
-    nbands = 10
-    freq, bw = (skutil  # Center frequencies to form images
-        .view_as_windows(np.linspace(1500, 4500, nbands), (2,), 1)
-        .mean(axis=-1)), 50.0  # [Hz]
-
-    # freq, bw = librosa.mel_frequencies(n_mels=nbands-1, fmin=50, fmax=4500), 50
+    if bands_type == "linear":
+        freq, bw = (skutil  # Center frequencies to form images
+            .view_as_windows(np.linspace(1500, 4500, nbands), (2,), 1)
+            .mean(axis=-1)), 50.0  # [Hz]
+    else: # spacing is "mel frequency bands"
+        freq, bw = librosa.mel_frequencies(n_mels=nbands-1, fmin=50, fmax=4500), 50
 
     visibilities = []
-    for i in range(nbands-1):
+    for i in range(nbands):
         T_sti = 10.0e-3
         T_stationarity = 10 * T_sti  # Choose to have frame_rate = 10
         S = form_visibility(audio_in, fs, freq[i], bw, T_sti, T_stationarity)
@@ -163,10 +163,10 @@ def create_full_hdf_data(dataset_name='train', data_src=None, save_path=None):
         for clip_name in tqdm(eigenmike_files):
             # print("Clipname ", os.path.basename(clip_name))
             fs, eigen_sig = wavfile.read(clip_name)
-            vsg_sig = get_visibility_matrix(eigen_sig, fs) # visibility graph matrix 32ch 
+            vsg_sig = get_visibility_matrix(eigen_sig, fs, nbands=16, bands_type="linear") # visibility graph matrix 32ch 
             # print("Visibility matrix size:", vsg_sig.shape)
             mic_sig = eigen_sig[:, [5,9,25,21]] # 4 ch raw MIC
-            mic_vsg_sig = get_visibility_matrix(mic_sig, fs)
+            mic_vsg_sig = get_visibility_matrix(mic_sig, fs, nbands=16, bands_type="linear")
             mic_data.append(mic_vsg_sig.transpose(1, 0, 2, 3))
             vg_labels.append(vsg_sig.transpose(1, 0, 2, 3)) # (nframes, nbands, nch, nch)
         a_np = np.vstack(mic_data)
